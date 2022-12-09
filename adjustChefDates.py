@@ -7,49 +7,61 @@
 # Run selenium phantom headless in background
 # Check if login worked before proceeding
 # Properly comment code
+# Year should be automatically generated; you can only schedule one year in advance anyways
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from time import sleep
 from datetime import datetime
 from getpass import getpass
+import pandas as pd
 
 ###############################################
 
 PHPSESSID_cookie = "" # Can use this instead of logging in with creds every time; obtain from your browser after logging in manually
 
+# Can use Google Sheets instead of manually choosing year/month/days below; if this link is included, the dates below are ignored
+SHEET_ID = ""
+SHEET_NAME = "Sheet1"
+
+# '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 year = 2022 # choose a year
 month = 11 # choose a month
 
 # Choose individual days and/or a date range
 individualDays = [] # comma separated list of individual dates
-dateRange = [27, 30] # start date and end date
+dateRange = [] # start date and end date
 
 freeForLunch = False # we are FREE for lunch
 freeForDinner = False # we are NOT FREE for dinner
+# '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 ###############################################
 
-if type(individualDays) is not list:
-    print("ERROR: individualDays must be a list!")
-    quit()
-if type(dateRange) is not list or len(dateRange) != 2:
-    print("ERROR: dateRange must be a list containing the start date and end date, e.g. [1, 5]")
-    quit()
+if isinstance(SHEET_ID, str) and SHEET_ID != "" and isinstance(SHEET_NAME, str) and SHEET_NAME != "":
+    url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={SHEET_NAME}'
+    df = pd.read_csv(url)
+else:
+    if type(individualDays) is not list:
+        print("ERROR: individualDays must be a list!")
+        quit()
+    if type(dateRange) is not list or len(dateRange) != 2:
+        print("ERROR: dateRange must be a list containing the start date and end date, e.g. [1, 5]")
+        quit()
 
-days = []
-for day in individualDays:
-    if type(day) is int and day >= 1 and day <= 31:
-        days.append(day)
-    else:
-        print("ERROR: All list elements in individualDays must be type int and values between 1-31!")
-        quit()
-for day in range(dateRange[0], dateRange[1]+1):
-    if type(day) is int and day >= 1 and day <= 31:
-        days.append(day)
-    else:
-        print("ERROR: dateRange must contain exactly two elements that both must be type int and values between 1-31!")
-        quit()
+    days = []
+    for day in individualDays:
+        if type(day) is int and day >= 1 and day <= 31:
+            days.append(day)
+        else:
+            print("ERROR: All list elements in individualDays must be type int and values between 1-31!")
+            quit()
+    for day in range(dateRange[0], dateRange[1]+1):
+        if type(day) is int and day >= 1 and day <= 31:
+            days.append(day)
+        else:
+            print("ERROR: dateRange must contain exactly two elements that both must be type int and values between 1-31!")
+            quit()
 
 options = webdriver.EdgeOptions()
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
@@ -74,37 +86,62 @@ driver.maximize_window()
 
 #sleep(1)
 
-# You know that the current month is div[0], next month is div[1], etc
-today = datetime.now()
-# FUTURE WORK: Make script work with spelling out months
-#currentMonthFullName = today.strftime("%b") # January
-#currentMonthAbbreviatedName = today.strftime("%b") # Jan
-currentMonthNumber = int(today.strftime("%m"))
-if month == currentMonthNumber:
-    XPATH_Month_Index = 1
-else:
-    currentMonthNumber += 1
-    if currentMonthNumber == 13:
-        currentMonthNumber = 1
-    if month == currentMonthNumber:
-        XPATH_Month_Index = 2
+# # You know that the current month is div[0], next month is div[1], etc
+# today = datetime.now()
+# # FUTURE WORK: Make script work with spelling out months
+# #currentMonthFullName = today.strftime("%b") # January
+# #currentMonthAbbreviatedName = today.strftime("%b") # Jan
+# currentMonthNumber = int(today.strftime("%m"))
+# if month == currentMonthNumber:
+#     XPATH_Month_Index = 1
+# else:
+#     currentMonthNumber += 1
+#     if currentMonthNumber == 13:
+#         currentMonthNumber = 1
+#     if month == currentMonthNumber:
+#         XPATH_Month_Index = 2
     
+#     else:
+#         currentMonthNumber += 1
+#         if currentMonthNumber == 13:
+#             currentMonthNumber = 1
+#         if month == currentMonthNumber:
+#             XPATH_Month_Index = 3
+#         else:
+#             print("FUTURE WORK: Make the script work with months 3+ in advance of current date")
+#             exit()
+
+for row in zip(df['Date'], df['Lunch'], df['Dinner']):
+    day = int(row[0].split('/')[1])
+    month = int(row[0].split('/')[0])
+    year = int(row[0].split('/')[2])
+    firstDayOfMonthDayOfWeek = (datetime.date(datetime(year, month, 1)).weekday()+1)%7
+    XPATH_Day_Index = firstDayOfMonthDayOfWeek + 7 + day
+
+    # You know that the current month is div[0], next month is div[1], etc
+    today = datetime.now()
+    # FUTURE WORK: Make script work with spelling out months
+    #currentMonthFullName = today.strftime("%b") # January
+    #currentMonthAbbreviatedName = today.strftime("%b") # Jan
+    currentMonthNumber = int(today.strftime("%m"))
+    if month == currentMonthNumber:
+        XPATH_Month_Index = 1
     else:
         currentMonthNumber += 1
         if currentMonthNumber == 13:
             currentMonthNumber = 1
         if month == currentMonthNumber:
-            XPATH_Month_Index = 3
+            XPATH_Month_Index = 2
+        
         else:
-            print("FUTURE WORK: Make the script work with months 3+ in advance of current date")
-            exit()
-
-# Total offset = 7 + day + 1st day of month day of week offset
-firstDayOfMonthDayOfWeek = (datetime.date(datetime(year, month, 1)).weekday()+1)%7
-#print("DAY OF WEEK: ", firstDayOfMonthDayOfWeek)
-for day in days:
-#    print("DAY: {}".format(day))
-    XPATH_Day_Index = firstDayOfMonthDayOfWeek + 7 + day
+            currentMonthNumber += 1
+            if currentMonthNumber == 13:
+                currentMonthNumber = 1
+            if month == currentMonthNumber:
+                XPATH_Month_Index = 3
+            else:
+                print("FUTURE WORK: Make the script work with months 3+ in advance of current date")
+                exit()
 
     XPATH_Expression = "/html/body/div[1]/div[3]/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div[1]/div["+str(XPATH_Month_Index)+"]/div[2]/div["+str(XPATH_Day_Index)+"]/span[1]"
     driver.find_element(By.XPATH, XPATH_Expression).click()
@@ -112,18 +149,23 @@ for day in days:
     # Before clicking, need to check what current value is
     isLunchSelected = driver.find_element(By.ID, "selected_day_slot_lunch").is_selected()
 #    print("IS LUNCH SELECTED: ", isLunchSelected)
-    isDinnerSelected = driver.find_element(By.ID, "selected_day_slot_dinner").is_selected()
-#    print("IS DINNER SELECTED: ", isDinnerSelected)
+    skipDinner = False
+    try:
+        isDinnerSelected = driver.find_element(By.ID, "selected_day_slot_dinner").is_selected()
+    #    print("IS DINNER SELECTED: ", isDinnerSelected)
+    except:
+        print("Dinner button not available for {}, probably because it's already reserved.".format(str(month)+'/'+str(day)+'/'+str(year)))
+        skipDinner = True
 
     # Check if box should be clicked or not
-    while (isLunchSelected and not freeForLunch) or (not isLunchSelected and freeForLunch):
+    while (isLunchSelected and row[1] == "Not") or (not isLunchSelected and row[1] == "Available"):
 #        print("Clicking lunch button...")
         driver.find_element(By.ID, "selected_day_slot_lunch").click()
         sleep(1)
         driver.find_element(By.XPATH, XPATH_Expression).click()
         isLunchSelected = driver.find_element(By.ID, "selected_day_slot_lunch").is_selected()
 #        print("IS LUNCH SELECTED: ", isLunchSelected)
-    while (isDinnerSelected and not freeForDinner) or (not isDinnerSelected and freeForDinner):
+    while not skipDinner and ((isDinnerSelected and row[2] == "Not") or (not isDinnerSelected and row[2] == "Available")):
 #        print("Clicking dinner button...")
         driver.find_element(By.ID, "selected_day_slot_dinner").click()
         sleep(1)
@@ -131,6 +173,40 @@ for day in days:
         isDinnerSelected = driver.find_element(By.ID, "selected_day_slot_dinner").is_selected()
 #        print("IS DINNER SELECTED: ", isDinnerSelected)
 
+
+# # Total offset = 7 + day + 1st day of month day of week offset
+# firstDayOfMonthDayOfWeek = (datetime.date(datetime(year, month, 1)).weekday()+1)%7
+# #print("DAY OF WEEK: ", firstDayOfMonthDayOfWeek)
+# for day in days:
+# #    print("DAY: {}".format(day))
+#     XPATH_Day_Index = firstDayOfMonthDayOfWeek + 7 + day
+
+#     XPATH_Expression = "/html/body/div[1]/div[3]/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div[1]/div["+str(XPATH_Month_Index)+"]/div[2]/div["+str(XPATH_Day_Index)+"]/span[1]"
+#     driver.find_element(By.XPATH, XPATH_Expression).click()
+
+#     # Before clicking, need to check what current value is
+#     isLunchSelected = driver.find_element(By.ID, "selected_day_slot_lunch").is_selected()
+# #    print("IS LUNCH SELECTED: ", isLunchSelected)
+#     isDinnerSelected = driver.find_element(By.ID, "selected_day_slot_dinner").is_selected()
+# #    print("IS DINNER SELECTED: ", isDinnerSelected)
+
+#     # Check if box should be clicked or not
+#     while (isLunchSelected and not freeForLunch) or (not isLunchSelected and freeForLunch):
+# #        print("Clicking lunch button...")
+#         driver.find_element(By.ID, "selected_day_slot_lunch").click()
+#         sleep(1)
+#         driver.find_element(By.XPATH, XPATH_Expression).click()
+#         isLunchSelected = driver.find_element(By.ID, "selected_day_slot_lunch").is_selected()
+# #        print("IS LUNCH SELECTED: ", isLunchSelected)
+#     while (isDinnerSelected and not freeForDinner) or (not isDinnerSelected and freeForDinner):
+# #        print("Clicking dinner button...")
+#         driver.find_element(By.ID, "selected_day_slot_dinner").click()
+#         sleep(1)
+#         driver.find_element(By.XPATH, XPATH_Expression).click()
+#         isDinnerSelected = driver.find_element(By.ID, "selected_day_slot_dinner").is_selected()
+# #        print("IS DINNER SELECTED: ", isDinnerSelected)
+
 #sleep(5)
-print("\nAvailability successfully changed for the following dates in {}/{}: {}!\n".format(month, year, ', '.join(map(str, days))))
+#print("\nAvailability successfully changed for the following dates in {}/{}: {}!\n".format(month, year, ', '.join(map(str, days))))
+print("\nAvailability successfully changed!\n")
 driver.close()
